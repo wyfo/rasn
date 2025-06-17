@@ -195,7 +195,6 @@ impl<'a, T: From<&'a [u8]> + From<Vec<u8>>> FromOctetString<'a> for T {
 #[cfg(feature = "arc-slice")]
 mod arc_slice_impl {
     use super::{FromOctetString, OctetString, OctetStringBuffer};
-    use alloc::vec::Vec;
 
     #[derive(Default)]
     pub(crate) struct OctetStringBufferImpl(
