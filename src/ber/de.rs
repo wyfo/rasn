@@ -410,7 +410,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         struct BufferWrapper<B>(B);
         impl<B: OctetStringBuffer> Appendable for BufferWrapper<B> {
             fn new() -> Self {
-                Self(B::default())
+                Self(B::new())
             }
 
             fn append(&mut self, other: &mut Self) {

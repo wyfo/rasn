@@ -121,9 +121,17 @@ impl PartialEq<Vec<u8>> for OctetString {
 }
 
 /// A buffer that can be used to efficiently decode an `OCTET STRING`.
-pub trait OctetStringBuffer: Default + FromIterator<u8> {
-    /// Extracts the buffered slice.
+pub trait OctetStringBuffer: FromIterator<u8> {
+    /// Creates a new empty buffer.
+    fn new() -> Self;
+    /// Creates a new empty buffer with the given capacity.
+    fn with_capacity(capacity: usize) -> Self;
+    /// Extracts the buffered bytes slice.
     fn as_slice(&self) -> &[u8];
+    /// Extracts the buffered bytes slice.
+    fn as_mut_slice(&mut self) -> &mut [u8];
+    /// Appends a byte to the buffer.
+    fn push(&mut self, byte: u8);
     /// Appends the bytes to the buffer.
     fn extend_from_slice(&mut self, value: &[u8]);
     /// Creates a buffer from a bytes slice.
@@ -131,8 +139,24 @@ pub trait OctetStringBuffer: Default + FromIterator<u8> {
 }
 
 impl OctetStringBuffer for Vec<u8> {
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn with_capacity(capacity: usize) -> Self {
+        Self::with_capacity(capacity)
+    }
+
     fn as_slice(&self) -> &[u8] {
         self
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [u8] {
+        self
+    }
+
+    fn push(&mut self, byte: u8) {
+        self.push(byte);
     }
 
     fn extend_from_slice(&mut self, value: &[u8]) {
@@ -156,9 +180,6 @@ pub trait FromOctetString<'a> {
     /// Build the object from the buffer used to decode the `OCTET STRING`
     /// when is not contiguous or properly aligned.  
     fn from_buffer(buffer: Self::Buffer) -> Self;
-    /// Build the object directly from a bytes vector when it is already
-    /// decoded into a vector.
-    fn from_vec(vec: Vec<u8>) -> Self;
 }
 
 impl<'a, T: From<&'a [u8]> + From<Vec<u8>>> FromOctetString<'a> for T {
@@ -168,9 +189,6 @@ impl<'a, T: From<&'a [u8]> + From<Vec<u8>>> FromOctetString<'a> for T {
     }
     fn from_buffer(buffer: Self::Buffer) -> Self {
         T::from(buffer)
-    }
-    fn from_vec(vec: Vec<u8>) -> Self {
-        T::from(vec)
     }
 }
 
@@ -185,8 +203,24 @@ mod arc_slice_impl {
     );
 
     impl OctetStringBuffer for OctetStringBufferImpl {
+        fn new() -> Self {
+            Self(arc_slice::ArcBytesMut::new())
+        }
+
+        fn with_capacity(capacity: usize) -> Self {
+            Self(arc_slice::ArcBytesMut::with_capacity(capacity))
+        }
+
         fn as_slice(&self) -> &[u8] {
             &self.0
+        }
+
+        fn as_mut_slice(&mut self) -> &mut [u8] {
+            &mut self.0
+        }
+
+        fn push(&mut self, byte: u8) {
+            self.0.push(byte);
         }
 
         fn extend_from_slice(&mut self, value: &[u8]) {
@@ -213,9 +247,6 @@ mod arc_slice_impl {
         }
         fn from_buffer(buffer: Self::Buffer) -> Self {
             Self(OctetString(buffer.0.freeze()))
-        }
-        fn from_vec(vec: Vec<u8>) -> Self {
-            Self(vec.into())
         }
     }
 

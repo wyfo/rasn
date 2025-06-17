@@ -704,7 +704,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Tag,
         constraints: Constraints,
     ) -> Result<T> {
-        let mut buffer = T::Buffer::default();
+        let mut buffer = T::Buffer::new();
         let codec = self.codec();
 
         self.decode_extensible_container(constraints, |input, length| {

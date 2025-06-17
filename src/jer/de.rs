@@ -212,7 +212,7 @@ impl crate::Decoder for Decoder {
         _: Tag,
         _c: Constraints,
     ) -> Result<T, Self::Error> {
-        decode_jer_value!(Self::octet_string_from_value, self.stack).map(T::from_vec)
+        decode_jer_value!(Self::octet_string_from_value, self.stack).map(T::from_buffer)
     }
 
     fn decode_utf8_string(&mut self, _t: Tag, _c: Constraints) -> Result<Utf8String, Self::Error> {
@@ -665,7 +665,7 @@ impl Decoder {
         D::from_tag(self, tag)
     }
 
-    fn octet_string_from_value(value: Value) -> Result<alloc::vec::Vec<u8>, DecodeError> {
+    fn octet_string_from_value<B: OctetStringBuffer>(value: Value) -> Result<B, DecodeError> {
         let octet_string = value
             .as_str()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -713,17 +713,17 @@ impl Decoder {
 }
 
 /// Parses a hex string into bytes.
-fn bytes_from_hexstring(hex_string: &str) -> Option<alloc::vec::Vec<u8>> {
+fn bytes_from_hexstring<B: OctetStringBuffer>(hex_string: &str) -> Option<B> {
     if hex_string.len() % 2 != 0 {
         return None;
     }
-    let mut bytes = alloc::vec::Vec::<u8>::with_capacity(hex_string.len() / 2);
+    let mut bytes = B::with_capacity(hex_string.len() / 2);
     for (i, c) in hex_string.char_indices() {
         let n = nibble_from_hexdigit(c)?;
         if i % 2 == 0 {
             bytes.push(n << 4);
         } else {
-            bytes[i / 2] |= n;
+            bytes.as_mut_slice()[i / 2] |= n;
         }
     }
     Some(bytes)
