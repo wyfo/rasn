@@ -4,8 +4,11 @@ use alloc::{boxed::Box, vec::Vec};
 use num_bigint::BigInt;
 
 use crate::error::DecodeError;
-use crate::types::{self, AsnType, Constraints, Enumerated, SetOf, Tag};
+use crate::types::{
+    self, strings::DecodedOctetString, AsnType, Constraints, Enumerated, SetOf, Tag,
+};
 
+use crate::types::strings::FromOctetString;
 pub use nom::Needed;
 pub use rasn_derive::Decode;
 
@@ -238,13 +241,11 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         constraints: Constraints,
     ) -> Result<types::SetOf<D>, Self::Error>;
     /// Decode a `OCTET STRING` identified by `tag` from the available input.
-    fn decode_octet_string<'buf, T>(
+    fn decode_octet_string<'buf, T: FromOctetString<'buf>>(
         &'buf mut self,
         tag: Tag,
         constraints: Constraints,
-    ) -> Result<T, Self::Error>
-    where
-        T: From<&'buf [u8]> + From<Vec<u8>>;
+    ) -> Result<T, Self::Error>;
 
     /// Decode a `UTF8 STRING` identified by `tag` from the available input.
     fn decode_utf8_string(
@@ -700,13 +701,9 @@ impl Decode for types::OctetString {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "arc-slice")] {
-                decoder.decode_octet_string(tag, constraints)
-            } else {
-                decoder.decode_octet_string::<Vec<u8>>(tag, constraints).map(From::from)
-            }
-        }
+        decoder
+            .decode_octet_string::<DecodedOctetString>(tag, constraints)
+            .map(Into::into)
     }
 }
 

@@ -18,8 +18,11 @@ use parser::ParseNumberError;
 
 pub use self::config::DecoderOptions;
 
+use crate::ber::de::parser::Appendable;
 pub use crate::error::DecodeError;
 pub use crate::error::{BerDecodeErrorKind, CodecDecodeError, DecodeErrorKind, DerDecodeErrorKind};
+use crate::types::strings::{FromOctetString, OctetStringBuffer};
+
 type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 const EOC: &[u8] = &[0, 0];
@@ -399,51 +402,61 @@ impl<'input> crate::Decoder for Decoder<'input> {
         Err(DecodeError::real_not_supported(self.codec()))
     }
 
-    fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
+    fn decode_octet_string<'b, T: FromOctetString<'b>>(
         &'b mut self,
         tag: Tag,
         _: Constraints,
     ) -> Result<T> {
+        struct BufferWrapper<B>(B);
+        impl<B: OctetStringBuffer> Appendable for BufferWrapper<B> {
+            fn new() -> Self {
+                Self(B::default())
+            }
+
+            fn append(&mut self, other: &mut Self) {
+                self.0.extend_from_slice(other.0.as_slice())
+            }
+        }
         let (identifier, contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
             match contents {
-                Some(c) => Ok(T::from(c)),
+                Some(c) => Ok(T::from_slice(c)),
                 None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
             Err(DerDecodeErrorKind::ConstructedEncodingNotAllowed.into())
         } else {
-            let mut buffer = Vec::new();
+            let mut buffer = BufferWrapper::<T::Buffer>::new();
 
             if let Some(mut contents) = contents {
                 while !contents.is_empty() {
-                    let (c, mut vec) = self::parser::parse_encoded_value(
+                    let (c, mut child) = self::parser::parse_encoded_value(
                         &self.config,
                         contents,
                         Tag::OCTET_STRING,
-                        |input, _| Ok(alloc::vec::Vec::from(input)),
+                        |input, _| Ok(BufferWrapper(T::Buffer::from_slice(input))),
                     )?;
                     contents = c;
 
-                    buffer.append(&mut vec);
+                    buffer.append(&mut child);
                 }
             } else {
                 while !self.input.starts_with(EOC) {
-                    let (c, mut vec) = self::parser::parse_encoded_value(
+                    let (c, mut child) = self::parser::parse_encoded_value(
                         &self.config,
                         self.input,
                         Tag::OCTET_STRING,
-                        |input, _| Ok(alloc::vec::Vec::from(input)),
+                        |input, _| Ok(BufferWrapper(T::Buffer::from_slice(input))),
                     )?;
                     self.input = c;
 
-                    buffer.append(&mut vec);
+                    buffer.append(&mut child);
                 }
 
                 self.parse_eoc()?;
             }
-            Ok(T::from(buffer))
+            Ok(T::from_buffer(buffer.0))
         }
     }
 

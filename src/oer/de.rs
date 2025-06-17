@@ -30,6 +30,7 @@ use crate::{
 use bitvec::{order::Msb0, view::BitView};
 
 use crate::error::{CoerDecodeErrorKind, DecodeError, DecodeErrorKind, OerDecodeErrorKind};
+use crate::types::strings::FromOctetString;
 
 /// Options for configuring the [`Decoder`].
 #[derive(Clone, Copy, Debug)]
@@ -663,7 +664,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             .map(|seq| SetOf::from_vec(seq))
     }
 
-    fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
+    fn decode_octet_string<'b, T: FromOctetString<'b>>(
         &'b mut self,
         _: Tag,
         constraints: Constraints,
@@ -680,12 +681,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                             self.codec(),
                         )
                     })?)?;
-                return Ok(T::from(data));
+                return Ok(T::from_slice(data));
             }
         }
         let length = self.decode_length()?;
         let data = self.extract_data_by_length(length)?;
-        Ok(T::from(data))
+        Ok(T::from_slice(data))
     }
 
     fn decode_utf8_string(

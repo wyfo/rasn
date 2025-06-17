@@ -12,6 +12,7 @@ use xml_no_std::{
 use crate::{error::*, types::*, xer::BOOLEAN_TRUE_TAG, Decode};
 
 use self::fields::Field;
+use crate::types::strings::FromOctetString;
 
 use super::{
     BOOLEAN_FALSE_TAG, MINUS_INFINITY_TAG, MINUS_INFINITY_VALUE, NAN_TAG, NAN_VALUE,
@@ -603,7 +604,7 @@ impl crate::Decoder for Decoder {
         Ok(SetOf::from_vec(items))
     }
 
-    fn decode_octet_string<'b, T: From<alloc::vec::Vec<u8>> + From<&'b [u8]>>(
+    fn decode_octet_string<'b, T: FromOctetString<'b>>(
         &'b mut self,
         _: Tag,
         _c: Constraints,
@@ -611,7 +612,7 @@ impl crate::Decoder for Decoder {
         tag!(StartElement, self)?;
         let value = match self.peek() {
             Some(XmlEvent::Characters(s)) => parse_octetstring_value(s),
-            Some(XmlEvent::EndElement { .. }) => return Ok(<T as From<&'b [u8]>>::from(&[])),
+            Some(XmlEvent::EndElement { .. }) => return Ok(T::from_slice(&[])),
             Some(elem) => {
                 return Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                     needed: "hexadecimal characters",
@@ -622,7 +623,7 @@ impl crate::Decoder for Decoder {
         };
         let _ = self.next_element();
         tag!(EndElement, self)?;
-        value.map(T::from)
+        value.map(T::from_buffer)
     }
 
     fn decode_utf8_string(
@@ -989,11 +990,11 @@ fn parse_bitstring_value(val: &str) -> Result<BitString, DecodeError> {
     })))
 }
 
-fn parse_octetstring_value(val: &str) -> Result<alloc::vec::Vec<u8>, DecodeError> {
+fn parse_octetstring_value<B: OctetStringBuffer>(val: &str) -> Result<B, DecodeError> {
     (0..val.len())
         .step_by(2)
         .map(|i| u8::from_str_radix(&val[i..i + 2], 16))
-        .collect::<Result<alloc::vec::Vec<_>, _>>()
+        .collect::<Result<B, _>>()
         .map_err(|e| XerDecodeErrorKind::InvalidXerOctetstring { parse_int_err: e }.into())
 }
 

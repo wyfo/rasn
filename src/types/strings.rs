@@ -22,7 +22,7 @@ pub use {
     graphic::GraphicString,
     ia5::Ia5String,
     numeric::NumericString,
-    octet::{FixedOctetString, OctetString},
+    octet::{FixedOctetString, FromOctetString, OctetString, OctetStringBuffer},
     printable::PrintableString,
     teletex::TeletexString,
     visible::VisibleString,
@@ -31,6 +31,7 @@ pub use {
 pub(crate) use constrained::{
     should_be_indexed, DynConstrainedCharacterString, StaticPermittedAlphabet,
 };
+pub(crate) use octet::DecodedOctetString;
 
 const fn bytes_to_chars<const N: usize>(input: [u8; N]) -> [u32; N] {
     let mut chars: [u32; N] = [0; N];

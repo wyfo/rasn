@@ -13,13 +13,14 @@ use crate::{
         self,
         constraints::{self, Extensible},
         fields::{Field, Fields},
-        strings::{should_be_indexed, StaticPermittedAlphabet},
+        strings::{should_be_indexed, FromOctetString, OctetStringBuffer, StaticPermittedAlphabet},
         Constraints, Enumerated, IntegerType, SetOf, Tag,
     },
     Decode,
 };
 
 pub use crate::error::DecodeError;
+
 type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
@@ -698,12 +699,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         Err(DecodeError::real_not_supported(self.codec()))
     }
 
-    fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
+    fn decode_octet_string<'b, T: FromOctetString<'b>>(
         &'b mut self,
         _: Tag,
         constraints: Constraints,
     ) -> Result<T> {
-        let mut octet_string = Vec::new();
+        let mut buffer = T::Buffer::default();
         let codec = self.codec();
 
         self.decode_extensible_container(constraints, |input, length| {
@@ -712,10 +713,10 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
             let mut bytes = part.to_bitvec();
             bytes.force_align();
-            octet_string.extend_from_slice(bytes.as_raw_slice());
+            buffer.extend_from_slice(bytes.as_raw_slice());
             Ok(input)
         })?;
-        Ok(T::from(octet_string))
+        Ok(T::from_buffer(buffer))
     }
 
     fn decode_null(&mut self, _: Tag) -> Result<()> {
